@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,10 @@ def get_db():
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
 @app.post("/questions/")
 async def create_question(question: QuestionsBase, db: db_dependency):
     db_question = models.Questions(question_text=question.question_text)
@@ -44,6 +48,13 @@ async def create_question(question: QuestionsBase, db: db_dependency):
     db.commit()
     db.refresh(db_choice)
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.get("/questions/")
+async def get_questions(db: db_dependency):
+    return db.query(models.Questions).all()
+
+@app.get("/questions/{question_id}")
+async def get_question(question_id: int, db: db_dependency):
+    result = db.query(models.Questions).filter(models.Questions.id == question_id).first()
+    if result is None:
+        raise HTTPException(status_code=404, detail="Question not found")
+    return result
